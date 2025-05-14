@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Editare Reminder
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{{ url_for('update_reminder', reminder_id=reminder.id) }}">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label for="title" class="form-label">Titlu Reminder</label>
+                                <input type="text" class="form-control" id="title" name="title" 
+                                       value="{{ reminder.title }}" required>
+                            </div>
+                            
+                            <div class="col-md-12">
+                                <label for="description" class="form-label">Descriere (opțional)</label>
+                                <textarea class="form-control" id="description" name="description" rows="3">{{ reminder.description or '' }}</textarea>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="day_of_week" class="form-label">Zi a săptămânii</label>
+                                <select class="form-select" id="day_of_week" name="day_of_week" required>
+                                    <option value="0" {% if reminder.day_of_week == 0 %}selected{% endif %}>Luni</option>
+                                    <option value="1" {% if reminder.day_of_week == 1 %}selected{% endif %}>Marți</option>
+                                    <option value="2" {% if reminder.day_of_week == 2 %}selected{% endif %}>Miercuri</option>
+                                    <option value="3" {% if reminder.day_of_week == 3 %}selected{% endif %}>Joi</option>
+                                    <option value="4" {% if reminder.day_of_week == 4 %}selected{% endif %}>Vineri</option>
+                                    <option value="5" {% if reminder.day_of_week == 5 %}selected{% endif %}>Sâmbătă</option>
+                                    <option value="6" {% if reminder.day_of_week == 6 %}selected{% endif %}>Duminică</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="time_of_day" class="form-label">Ora</label>
+                                <input type="time" class="form-control" id="time_of_day" name="time_of_day" 
+                                       value="{{ reminder.time_of_day }}" required>
+                            </div>
+                            
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="active" name="active" 
+                                           {% if reminder.active %}checked{% endif %}>
+                                    <label class="form-check-label" for="active">Reminder activ</label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Salvează Modificările
+                            </button>
+                            
+                            <a href="{{ url_for('reminders') }}" class="btn btn-outline-secondary ms-2">
+                                <i class="fas fa-times me-2"></i>
+                                Anulează
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

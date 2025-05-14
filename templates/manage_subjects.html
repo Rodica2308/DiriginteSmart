@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-book me-3 text-primary"></i>
+                    Administrare Materii
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-plus-circle me-2 text-primary"></i>
+                            Adaugă Materie Nouă
+                        </h5>
+                        <form action="{{ url_for('add_subject') }}" method="post" class="mb-4">
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="name" placeholder="Numele materiei" required>
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="fas fa-plus me-1"></i>
+                                    Adaugă
+                                </button>
+                            </div>
+                            <small class="form-text text-muted">Se pot adăuga până la 25 de materii în sistem.</small>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-info mb-3">
+                            <p class="mb-0"><i class="fas fa-info-circle me-2"></i> 
+                                Gestionați materiile disponibile în sistem. Materiile sunt folosite pentru a înregistra notele elevilor.
+                            </p>
+                        </div>
+                        <div class="text-end">
+                            <a href="{{ url_for('view_grades') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Vezi Medii Școlare
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-list me-2 text-primary"></i>
+                    Materii Existente ({{ subjects|length }}/20)
+                </h5>
+
+                {% if subjects %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Denumire Materie</th>
+                                    <th class="text-center">Număr Note</th>
+                                    <th class="text-end">Acțiuni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for subject in subjects %}
+                                    <tr>
+                                        <td>{{ loop.index }}</td>
+                                        <td>
+                                            <span class="subject-name" data-subject-id="{{ subject.id }}">{{ subject.name }}</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-secondary">{{ subject.grades|length }}</span>
+                                        </td>
+                                        <td class="text-end">
+                                            <button class="btn btn-sm btn-outline-primary edit-subject" data-subject-id="{{ subject.id }}" data-subject-name="{{ subject.name }}">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            {% if subject.grades|length == 0 %}
+                                                <button class="btn btn-sm btn-outline-danger delete-subject" data-subject-id="{{ subject.id }}">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            {% else %}
+                                                <button class="btn btn-sm btn-outline-danger" disabled title="Nu se poate șterge - are note asociate">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Nu există materii în sistem. Adăugați materii pentru a putea înregistra note.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pentru editarea materiei -->
+<div class="modal fade" id="editSubjectModal" tabindex="-1" aria-labelledby="editSubjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editSubjectModalLabel">Editare Materie</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editSubjectForm" action="{{ url_for('edit_subject', subject_id=0) }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editSubjectName" class="form-label">Nume Materie</label>
+                        <input type="text" class="form-control" id="editSubjectName" name="name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+                    <button type="submit" class="btn btn-primary">Salvează Modificările</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configurare modal editare materie
+    const editSubjectModal = document.getElementById('editSubjectModal');
+    const editSubjectForm = document.getElementById('editSubjectForm');
+    const editSubjectName = document.getElementById('editSubjectName');
+    
+    // Handler pentru butoanele de editare
+    document.querySelectorAll('.edit-subject').forEach(button => {
+        button.addEventListener('click', function() {
+            const subjectId = this.getAttribute('data-subject-id');
+            const subjectName = this.getAttribute('data-subject-name');
+            
+            // Actualizează formularul
+            editSubjectForm.action = editSubjectForm.action.replace(/\/\d+$/, `/${subjectId}`);
+            editSubjectName.value = subjectName;
+            
+            // Afișează modalul
+            const modal = new bootstrap.Modal(editSubjectModal);
+            modal.show();
+        });
+    });
+    
+    // Handler pentru butoanele de ștergere
+    document.querySelectorAll('.delete-subject').forEach(button => {
+        button.addEventListener('click', function() {
+            const subjectId = this.getAttribute('data-subject-id');
+            
+            if (confirm('Sunteți sigur că doriți să ștergeți această materie?')) {
+                fetch(`/delete-subject/${subjectId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reîncarcă pagina pentru a reflecta modificările
+                        window.location.reload();
+                    } else {
+                        alert('Eroare: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('A apărut o eroare. Verificați consola pentru detalii.');
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,79 @@
+# Rute pentru sistemul de remindere
+@app.route('/reminders')
+def reminders():
+    """Pagina pentru managementul reminderelor"""
+    active_reminders = check_active_reminders()  # Pentru afișarea notificărilor
+    all_reminders = Reminder.query.order_by(Reminder.day_of_week, Reminder.time_of_day).all()
+    return render_template('reminders.html', reminders=all_reminders, active_reminders=active_reminders)
+
+@app.route('/add-reminder', methods=['POST'])
+def add_reminder():
+    """Adaugă un reminder nou"""
+    title = request.form.get('title')
+    description = request.form.get('description')
+    day_of_week = int(request.form.get('day_of_week', 5))  # 5 = Sâmbătă în mod implicit
+    time_of_day = request.form.get('time_of_day', '09:00')
+    
+    if not title:
+        flash('Titlul reminderului este obligatoriu!', 'danger')
+        return redirect(url_for('reminders'))
+        
+    reminder = Reminder(
+        title=title, 
+        description=description,
+        day_of_week=day_of_week,
+        time_of_day=time_of_day,
+        active=True
+    )
+    
+    db.session.add(reminder)
+    db.session.commit()
+    
+    flash(f'Reminder "{title}" a fost adăugat cu succes!', 'success')
+    return redirect(url_for('reminders'))
+
+@app.route('/edit-reminder/<int:reminder_id>')
+def edit_reminder(reminder_id):
+    """Pagina pentru editarea unui reminder"""
+    reminder = Reminder.query.get_or_404(reminder_id)
+    active_reminders = check_active_reminders()  # Pentru afișarea notificărilor
+    return render_template('edit_reminder.html', reminder=reminder, active_reminders=active_reminders)
+    
+@app.route('/update-reminder/<int:reminder_id>', methods=['POST'])
+def update_reminder(reminder_id):
+    """Actualizează un reminder existent"""
+    reminder = Reminder.query.get_or_404(reminder_id)
+    
+    reminder.title = request.form.get('title')
+    reminder.description = request.form.get('description')
+    reminder.day_of_week = int(request.form.get('day_of_week', 5))
+    reminder.time_of_day = request.form.get('time_of_day', '09:00')
+    reminder.active = 'active' in request.form
+    
+    db.session.commit()
+    
+    flash(f'Reminder "{reminder.title}" a fost actualizat cu succes!', 'success')
+    return redirect(url_for('reminders'))
+    
+@app.route('/toggle-reminder/<int:reminder_id>')
+def toggle_reminder(reminder_id):
+    """Activează/dezactivează un reminder"""
+    reminder = Reminder.query.get_or_404(reminder_id)
+    reminder.active = not reminder.active
+    db.session.commit()
+    
+    status = "activat" if reminder.active else "dezactivat"
+    flash(f'Reminder "{reminder.title}" a fost {status}!', 'success')
+    return redirect(url_for('reminders'))
+    
+@app.route('/delete-reminder/<int:reminder_id>')
+def delete_reminder(reminder_id):
+    """Șterge un reminder"""
+    reminder = Reminder.query.get_or_404(reminder_id)
+    
+    title = reminder.title
+    db.session.delete(reminder)
+    db.session.commit()
+    
+    flash(f'Reminder "{title}" a fost șters cu succes!', 'success')
+    return redirect(url_for('reminders'))

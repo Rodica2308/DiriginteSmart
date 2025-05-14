@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-plus-circle me-3 text-primary"></i>
+                    Adăugare Note
+                </h2>
+            </div>
+            <div class="card-body">
+                <!-- Formular pentru adăugarea unui elev nou -->
+                <div class="mb-5">
+                    <h4 class="mb-4 border-bottom pb-2">
+                        <i class="fas fa-user-graduate me-2 text-primary"></i>
+                        Adaugă Elev Nou
+                    </h4>
+                    <form id="studentForm" action="{{ url_for('add_student') }}" method="post" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="studentName" class="form-label">Nume Elev</label>
+                            <input type="text" class="form-control" id="studentName" name="name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="className" class="form-label">Clasa</label>
+                            <input type="text" class="form-control" id="className" name="class_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="parentName" class="form-label">Nume Părinte</label>
+                            <input type="text" class="form-control" id="parentName" name="parent_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="parentEmail" class="form-label">Email Părinte</label>
+                            <input type="email" class="form-control" id="parentEmail" name="parent_email" required>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Salvează Elev
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Adăugare Notă pentru Elev -->
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                        <h4 class="mb-0">
+                            <i class="fas fa-graduation-cap me-2 text-primary"></i>
+                            Adaugă Notă
+                        </h4>
+                        <a href="{{ url_for('add_multiple_grades') }}" class="btn btn-outline-primary">
+                            <i class="fas fa-list-ol me-2"></i>
+                            Adaugă Note Multiple
+                        </a>
+                    </div>
+                    
+                    {% if students %}
+                        <form id="gradeForm" action="{{ url_for('add_grade') }}" method="post" class="row g-3">
+                            <div class="col-md-6">
+                                <label for="student" class="form-label">Elev</label>
+                                <select class="form-select" id="student" name="student_id" required>
+                                    <option value="">Selectează elevul</option>
+                                    {% for student in students %}
+                                        <option value="{{ student.id }}">{{ student.name }} (Clasa {{ student.class_name }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="subject" class="form-label">Materie</label>
+                                <div class="input-group">
+                                    <select class="form-select" id="subject" name="subject_id">
+                                        <option value="">Selectează materia</option>
+                                        {% for subject in subjects %}
+                                            <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#newSubjectModal">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="grade" class="form-label">Notă</label>
+                                <input type="number" class="form-control" id="grade" name="value" min="1" max="10" step="0.01" required>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="gradeDate" class="form-label">Data</label>
+                                <input type="date" class="form-control" id="gradeDate" name="date" value="{{ now.strftime('%Y-%m-%d') }}" required>
+                            </div>
+                            
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-plus-circle me-2"></i>
+                                    Adaugă Notă
+                                </button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nu există elevi înregistrați. Adăugați un elev înainte de a putea introduce note.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pentru adăugarea unei materii noi -->
+<div class="modal fade" id="newSubjectModal" tabindex="-1" aria-labelledby="newSubjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newSubjectModalLabel">Adaugă Materie Nouă</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="subjectForm" action="{{ url_for('add_subject') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="subjectName" class="form-label">Nume Materie</label>
+                        <input type="text" class="form-control" id="subjectName" name="name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+                    <button type="submit" class="btn btn-primary">Salvează</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Redirectează înapoi la pagina curentă după ce se adaugă o materie
+    document.getElementById('subjectForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = e.target;
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Ascunde modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('newSubjectModal'));
+                modal.hide();
+                
+                // Adaugă noua materie în select
+                const subjectSelect = document.getElementById('subject');
+                const option = document.createElement('option');
+                option.value = data.subject.id;
+                option.textContent = data.subject.name;
+                subjectSelect.appendChild(option);
+                subjectSelect.value = data.subject.id;
+                
+                // Resetează formularul
+                form.reset();
+                
+                // Afișează notificare de succes
+                alert('Materia a fost adăugată cu succes!');
+            } else {
+                alert('Eroare: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('A apărut o eroare. Verificați consola pentru detalii.');
+        });
+    });
+});
+</script>
+{% endblock %}

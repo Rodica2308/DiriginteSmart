@@ -1,0 +1,178 @@
+Iată o propunere simplă, pas cu pas, și câteva idei:
+Conceptul de Bază (Varianta Simplă - Script Python)
+Stocarea Datelor: Folosim un fișier CSV (Comma Separated Values - ușor de creat/editat cu Excel, Google Sheets etc.) care conține informațiile necesare.
+Logica Aplicației: Un script Python care citește fișierul CSV, grupează notele pe părinte/email și trimite un email personalizat fiecărui părinte.
+Trimiterea Emailurilor: Folosim o bibliotecă Python pentru a trimite emailuri (ex: smtplib pentru conexiune directă sau servicii/biblioteci mai simple).
+Platforma: Replit (cu un template Python).
+Versionare: Git-ul integrat din Replit pentru a trimite codul pe GitHub.
+Pași Detaliați:
+Creare Proiect în Replit:
+Mergi pe Replit.com.
+Creează un nou Repl.
+Alege template-ul "Python".
+Dă-i un nume (ex: notificari-note-parinti).
+Definirea Structurii de Date (Fișierul CSV):
+Creează un fișier nou în Replit numit note.csv.
+Definește coloanele. O structură simplă ar putea fi:
+NumeElev,Clasa,Materie,Nota,Data,NumeParinte,EmailParinte
+Popescu Ion,5A,Matematica,10,2023-10-26,Popescu Vasile,vasile.popescu@email.com
+Ionescu Ana,5A,Romana,9,2023-10-26,Ionescu Maria,maria.ionescu@email.com
+Popescu Ion,5A,Istorie,8,2023-10-27,Popescu Vasile,vasile.popescu@email.com
+Georgescu Radu,6B,Biologie,7,2023-10-27,Georgescu Dan,dan.g@email.com
+Use code with caution.
+Csv
+Important: Asigură-te că datele sunt corecte, în special adresele de email.
+Scrierea Scriptului Python (main.py):
+Importuri necesare:
+import csv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import os # Pentru a citi variabile de mediu (parola email)
+from collections import defaultdict
+Use code with caution.
+Python
+Configurare Email (Securizat):
+NU stoca parola direct în cod! Folosește "Secrets" (Environment Variables) din Replit.
+În Replit, mergi la secțiunea "Secrets" (lacățelul din stânga).
+Adaugă două secrete:
+EMAIL_USER: Adresa ta de email (ex: notificari.scoala@gmail.com)
+EMAIL_PASS: Parola ta de email. Atenție: Dacă folosești Gmail cu 2FA, va trebui să generezi o "App Password". Caută "Gmail App Password" pentru instrucțiuni.
+În cod, citește aceste variabile:
+EMAIL_ADDRESS = os.environ.get('EMAIL_USER')
+EMAIL_PASSWORD = os.environ.get('EMAIL_PASS')
+SMTP_SERVER = "smtp.gmail.com" # Sau serverul providerului tau (ex: Yahoo, etc.)
+SMTP_PORT = 587 # Sau 465 pentru SSL
+Use code with caution.
+Python
+Citirea și Procesarea CSV:
+def citeste_si_grupeaza_note(fisier_csv='note.csv'):
+    note_parinti = defaultdict(list) # Dictionar unde cheia e emailul parintelui, valoarea e lista de note
+
+    try:
+        with open(fisier_csv, mode='r', encoding='utf-8') as file:
+            csv_reader = csv.DictReader(file)
+            for row in csv_reader:
+                email_parinte = row['EmailParinte']
+                detalii_nota = f"- {row['Materie']}: Nota {row['Nota']} (Data: {row['Data']}) - Elev: {row['NumeElev']}"
+                note_parinti[email_parinte].append(detalii_nota)
+    except FileNotFoundError:
+        print(f"EROARE: Fisierul {fisier_csv} nu a fost gasit.")
+        return None
+    except Exception as e:
+        print(f"EROARE la citirea CSV: {e}")
+        return None
+    return note_parinti
+Use code with caution.
+Python
+Funcția de Trimitere Email:
+def trimite_email(destinatar, subiect, corp_mesaj):
+    if not EMAIL_ADDRESS or not EMAIL_PASSWORD:
+        print("EROARE: Verifica variabilele de mediu EMAIL_USER si EMAIL_PASS.")
+        return False
+
+    mesaj = MIMEMultipart()
+    mesaj['From'] = EMAIL_ADDRESS
+    mesaj['To'] = destinatar
+    mesaj['Subject'] = subiect
+    mesaj.attach(MIMEText(corp_mesaj, 'plain', 'utf-8')) # Asiguram encoding utf-8
+
+    try:
+        print(f"Se conecteaza la serverul SMTP: {SMTP_SERVER}:{SMTP_PORT}...")
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls() # Securizeaza conexiunea
+        print("Conexiune securizata.")
+        server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+        print("Autentificare reusita.")
+        text = mesaj.as_string()
+        server.sendmail(EMAIL_ADDRESS, destinatar, text)
+        print(f"Email trimis cu succes catre {destinatar}")
+        server.quit()
+        return True
+    except smtplib.SMTPAuthenticationError:
+        print(f"EROARE de autentificare. Verifica email/parola (App Password?).")
+        return False
+    except Exception as e:
+        print(f"EROARE la trimiterea emailului catre {destinatar}: {e}")
+        # Aici poti adauga cod specific pentru erori comune (ex: conexiune refuzata)
+        # import traceback
+        # traceback.print_exc() # Pentru a vedea detalii complete despre eroare
+        if hasattr(e, 'smtp_error'):
+             print(f"SMTP Error: {e.smtp_error.decode()}") # Afiseaza mesajul de eroare SMTP daca exista
+
+        # Incearca sa inchizi serverul daca a fost deschis
+        try:
+            server.quit()
+        except:
+            pass # Ignora daca nu se poate inchide
+        return False
+Use code with caution.
+Python
+Logica Principală:
+if __name__ == "__main__":
+    print("Start procesare notificari note...")
+    note_grupate = citeste_si_grupeaza_note('note.csv')
+
+    if note_grupate:
+        numar_total = len(note_grupate)
+        numar_trimise = 0
+        numar_esuari = 0
+
+        for email, lista_note in note_grupate.items():
+            # Extrage numele parintelui (presupunand ca e acelasi pentru acelasi email in CSV)
+            # Asta ar trebui imbunatatit daca un parinte are mai multi copii in fisier
+            # Pentru simplitate, luam numele din prima inregistrare gasita (nu ideal)
+            nume_parinte = "Parinte" # Valoare default
+            try:
+               with open('note.csv', mode='r', encoding='utf-8') as f:
+                   reader = csv.DictReader(f)
+                   for r in reader:
+                       if r['EmailParinte'] == email:
+                           nume_parinte = r['NumeParinte']
+                           break
+            except: pass # Ignora erori aici
+
+            subiect = "Notificare Note Scolare"
+            corp = f"Buna ziua D-le/D-na {nume_parinte},\n\nIata cele mai recente note inregistrate pentru copilul/copiii dvs.:\n\n"
+            corp += "\n".join(lista_note)
+            corp += "\n\nO zi buna!\nSecretariatul Scolii" # Sau alt text
+
+            if trimite_email(email, subiect, corp):
+                numar_trimise += 1
+            else:
+                numar_esuari += 1
+            # Poti adauga o mica pauza intre emailuri daca trimiti multe
+            # import time
+            # time.sleep(1)
+
+        print("\nProcesare finalizata.")
+        print(f"Total parinti de notificat: {numar_total}")
+        print(f"Emailuri trimise cu succes: {numar_trimise}")
+        print(f"Emailuri esuate: {numar_esuari}")
+    else:
+        print("Nu s-au gasit date valide in fisierul CSV sau a aparut o eroare la citire.")
+Use code with caution.
+Python
+Testarea:
+Rulează scriptul în Replit apăsând butonul "Run".
+Verifică consola Replit pentru mesaje de status sau erori.
+Verifică dacă emailurile ajung (testează întâi cu propria ta adresă de email în fișierul CSV).
+Integrarea cu GitHub:
+În Replit, mergi la tab-ul "Version Control" (iconița Git din stânga).
+Dacă nu ai conectat contul GitHub, Replit te va ghida să o faci.
+Scrie un mesaj de commit (ex: "Initial commit - script notificare note").
+Apasă "Commit & Push".
+Replit va crea un repository nou pe contul tău GitHub (sau te va lăsa să alegi unul existent) și va urca codul. Gata!
+Idei Suplimentare / Îmbunătățiri:
+Interfață Web Simplă: Poți adăuga o interfață web folosind Flask sau Streamlit (biblioteci Python).
+Un formular simplu unde poți încărca fișierul note.csv.
+Un buton "Trimite Notificări".
+Afișarea unui status (Ex: "Emailuri trimise cu succes către X părinți").
+Gestionare Erori Mai Bună: Adaugă logare mai detaliată a erorilor (într-un fișier log). Reîncercare automată pentru emailurile care eșuează.
+Template-uri Email: Folosește template-uri HTML pentru emailuri mai aspectuoase (ex: cu biblioteca Jinja2).
+Validare Date: Verifică dacă adresele de email din CSV sunt valide înainte de a încerca să trimiți. Verifică dacă notele sunt într-un format așteptat.
+Programare (Scheduling): Dacă vrei ca scriptul să ruleze automat (ex: zilnic), poți folosi funcționalitatea "Always On" din Replit (poate necesita un plan plătit) împreună cu o bibliotecă ca schedule sau pur și simplu o buclă cu time.sleep într-un script care rulează continuu.
+Considerații Importante:
+GDPR / Confidențialitate: Asigură-te că ai acordul părinților pentru a le trimite emailuri cu notele. Tratează datele cu maximă confidențialitate.
+Limite de Trimitere Email: Providerii de email (Gmail, etc.) au limite zilnice pentru trimiterea de emailuri prin SMTP pentru a preveni spam-ul. Dacă ai mulți elevi, s-ar putea să atingi aceste limite. Pentru volume mari, ia în considerare servicii dedicate de email tranzacțional (SendGrid, Mailgun etc. - au și planuri gratuite cu limite generoase).
+Securitate: Folosirea "Secrets" în Replit este esențială pentru a nu expune parola de email.

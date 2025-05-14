@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-users me-3 text-primary"></i>
+                    Administrare Elevi
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h5 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-user-plus me-2 text-primary"></i>
+                            Adaugă Elev Nou
+                        </h5>
+                        <form action="{{ url_for('add_student_from_manage') }}" method="post" class="row g-3">
+                            <div class="col-md-6">
+                                <label for="studentName" class="form-label">Nume Elev</label>
+                                <input type="text" class="form-control" id="studentName" name="name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="className" class="form-label">Clasa</label>
+                                <input type="text" class="form-control" id="className" name="class_name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="parentName" class="form-label">Nume Părinte</label>
+                                <input type="text" class="form-control" id="parentName" name="parent_name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="parentEmail" class="form-label">Email Părinte</label>
+                                <input type="email" class="form-control" id="parentEmail" name="parent_email" required>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    Salvează Elev
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-info mb-3">
+                            <p class="mb-0"><i class="fas fa-info-circle me-2"></i> 
+                                Gestionați elevii din sistem. Puteți adăuga, edita sau șterge elevi.
+                            </p>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('view_grades') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-chart-line me-2"></i>
+                                Vezi Medii Școlare
+                            </a>
+                            <a href="{{ url_for('export_excel') }}" class="btn btn-success">
+                                <i class="fas fa-file-excel me-2"></i>
+                                Exportă Excel
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <h5 class="border-bottom pb-2 mb-3">
+                    <i class="fas fa-list me-2 text-primary"></i>
+                    Elevi Înregistrați ({{ students|length }})
+                </h5>
+                
+                {% if students %}
+                    <!-- Filtru rapid -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-primary text-white">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" id="studentSearch" class="form-control" placeholder="Caută elev după nume...">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <select id="classFilter" class="form-select">
+                                <option value="">Toate clasele</option>
+                                {% for class_name in class_names %}
+                                    <option value="{{ class_name }}">Clasa {{ class_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="studentsTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Nume Elev</th>
+                                    <th>Clasa</th>
+                                    <th>Nume Părinte</th>
+                                    <th>Email Părinte</th>
+                                    <th class="text-center">Note</th>
+                                    <th class="text-end">Acțiuni</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for student in students %}
+                                    <tr class="student-row" data-class="{{ student.class_name }}">
+                                        <td>{{ student.name }}</td>
+                                        <td>{{ student.class_name }}</td>
+                                        <td>{{ student.parent_name }}</td>
+                                        <td><code>{{ student.parent_email }}</code></td>
+                                        <td class="text-center">
+                                            {% set grade_count = student.grades|length %}
+                                            {% if grade_count > 0 %}
+                                                <span class="badge bg-primary rounded-pill">{{ grade_count }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">0</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group">
+                                                <a href="{{ url_for('edit_student', student_id=student.id) }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="{{ url_for('view_grades') }}?student_id={{ student.id }}" class="btn btn-sm btn-outline-info">
+                                                    <i class="fas fa-chart-bar"></i>
+                                                </a>
+                                                {% if student.grades|length == 0 %}
+                                                    <button class="btn btn-sm btn-outline-danger delete-student" data-student-id="{{ student.id }}">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-sm btn-outline-danger" disabled title="Nu se poate șterge - are note asociate">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Nu există elevi înregistrați în sistem.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pentru editarea elevului -->
+<div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editStudentModalLabel">Editare Elev</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editStudentForm" action="{{ url_for('edit_student', student_id=0) }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editStudentName" class="form-label">Nume Elev</label>
+                        <input type="text" class="form-control" id="editStudentName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editClassName" class="form-label">Clasa</label>
+                        <input type="text" class="form-control" id="editClassName" name="class_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editParentName" class="form-label">Nume Părinte</label>
+                        <input type="text" class="form-control" id="editParentName" name="parent_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editParentEmail" class="form-label">Email Părinte</label>
+                        <input type="email" class="form-control" id="editParentEmail" name="parent_email" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+                    <button type="submit" class="btn btn-primary">Salvează Modificările</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Filtru după nume elev (search)
+    const studentSearch = document.getElementById('studentSearch');
+    const classFilter = document.getElementById('classFilter');
+    const studentsTable = document.getElementById('studentsTable');
+    
+    function applyFilters() {
+        const searchTerm = studentSearch.value.toLowerCase();
+        const selectedClass = classFilter.value;
+        
+        document.querySelectorAll('.student-row').forEach(row => {
+            const studentName = row.querySelector('td:first-child').textContent.toLowerCase();
+            const studentClass = row.getAttribute('data-class');
+            
+            const nameMatch = studentName.includes(searchTerm);
+            const classMatch = !selectedClass || studentClass === selectedClass;
+            
+            if (nameMatch && classMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    if (studentSearch) studentSearch.addEventListener('input', applyFilters);
+    if (classFilter) classFilter.addEventListener('change', applyFilters);
+    
+    // Ștergere elev
+    document.querySelectorAll('.delete-student').forEach(button => {
+        button.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-student-id');
+            
+            if (confirm('Sunteți sigur că doriți să ștergeți acest elev?')) {
+                fetch(`/delete-student/${studentId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reîncarcă pagina pentru a reflecta modificările
+                        window.location.reload();
+                    } else {
+                        alert('Eroare: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('A apărut o eroare. Verificați consola pentru detalii.');
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

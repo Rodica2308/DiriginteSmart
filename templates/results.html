@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-paper-plane me-3 text-primary"></i>
+                    Rezultate Trimitere Notificări
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="alert {{ 'alert-success' if results.success > 0 else 'alert-warning' }} mb-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas {{ 'fa-check-circle' if results.success > 0 else 'fa-exclamation-triangle' }} fs-1"></i>
+                        </div>
+                        <div>
+                            <h4 class="alert-heading fw-bold mb-2">
+                                {% if results.success > 0 %}
+                                    Notificări trimise cu succes!
+                                {% else %}
+                                    Nu s-a putut trimite nicio notificare
+                                {% endif %}
+                            </h4>
+                            <p class="mb-0">
+                                S-au trimis {{ results.success }} din {{ results.total }} notificări.
+                                {% if results.failed > 0 %}
+                                    <span class="text-danger">{{ results.failed }} notificări nu au putut fi trimise.</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Părinte</th>
+                                <th>Email</th>
+                                <th class="text-center">Note</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for detail in results.details %}
+                                <tr>
+                                    <td>{{ detail.name }}</td>
+                                    <td><code>{{ detail.email }}</code></td>
+                                    <td class="text-center">
+                                        {% if detail.grades_count > 0 %}
+                                            <span class="badge bg-primary rounded-pill">{{ detail.grades_count }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">0</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if detail.status == "Succes" %}
+                                            <span class="badge bg-success">Succes</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Eșuat</span>
+                                            <div class="small text-danger">{{ detail.status }}</div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="d-grid gap-2 col-md-6 mx-auto mt-4">
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">
+                        <i class="fas fa-home me-2"></i>
+                        Înapoi la Pagina Principală
+                    </a>
+                    <a href="{{ url_for('send_notifications_page') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-envelope me-2"></i>
+                        Trimite din Nou
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

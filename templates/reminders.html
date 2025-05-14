@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-bell me-2"></i>
+                        Remindere pentru Diriginte
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <p class="lead">
+                        Setează remindere pentru a nu uita să trimiți situația școlară a elevilor la sfârșitul săptămânii.
+                    </p>
+                    
+                    {% if reminders %}
+                        <div class="table-responsive mt-4">
+                            <table class="table table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Titlu</th>
+                                        <th>Zi</th>
+                                        <th>Ora</th>
+                                        <th>Status</th>
+                                        <th>Acțiuni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for reminder in reminders %}
+                                        <tr>
+                                            <td>{{ reminder.title }}</td>
+                                            <td>{{ reminder.day_name }}</td>
+                                            <td>{{ reminder.time_of_day }}</td>
+                                            <td>
+                                                {% if reminder.active %}
+                                                    <span class="badge bg-success">Activ</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Inactiv</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('edit_reminder', reminder_id=reminder.id) }}" class="btn btn-outline-primary">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <a href="{{ url_for('toggle_reminder', reminder_id=reminder.id) }}" class="btn btn-outline-warning">
+                                                        {% if reminder.active %}
+                                                            <i class="fas fa-pause"></i>
+                                                        {% else %}
+                                                            <i class="fas fa-play"></i>
+                                                        {% endif %}
+                                                    </a>
+                                                    <button class="btn btn-outline-danger delete-reminder" data-reminder-id="{{ reminder.id }}">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Nu există remindere definite. Crează primul tău reminder folosind formularul de mai jos.
+                        </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <form method="post" action="{{ url_for('add_reminder') }}" class="mt-4">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-plus-circle me-2 text-primary"></i>
+                                    Adaugă Reminder Nou
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label for="title" class="form-label">Titlu Reminder</label>
+                                        <input type="text" class="form-control" id="title" name="title" 
+                                               value="Trimite situația școlară" required>
+                                    </div>
+                                    
+                                    <div class="col-md-12">
+                                        <label for="description" class="form-label">Descriere (opțional)</label>
+                                        <textarea class="form-control" id="description" name="description" rows="3">Nu uita să trimiți situația școlară a elevilor la părinți!</textarea>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label for="day_of_week" class="form-label">Zi a săptămânii</label>
+                                        <select class="form-select" id="day_of_week" name="day_of_week" required>
+                                            <option value="0">Luni</option>
+                                            <option value="1">Marți</option>
+                                            <option value="2">Miercuri</option>
+                                            <option value="3">Joi</option>
+                                            <option value="4">Vineri</option>
+                                            <option value="5" selected>Sâmbătă</option>
+                                            <option value="6">Duminică</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label for="time_of_day" class="form-label">Ora</label>
+                                        <input type="time" class="form-control" id="time_of_day" name="time_of_day" 
+                                               value="09:00" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-footer">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-2"></i>
+                                    Salvează Reminder
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ștergere reminder
+    document.querySelectorAll('.delete-reminder').forEach(button => {
+        button.addEventListener('click', function() {
+            const reminderId = this.getAttribute('data-reminder-id');
+            
+            if (confirm('Sunteți sigur că doriți să ștergeți acest reminder?')) {
+                window.location.href = `/delete-reminder/${reminderId}`;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

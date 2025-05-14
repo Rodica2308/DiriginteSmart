@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow border-danger">
+            <div class="card-header bg-danger bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-trash-alt me-3 text-danger"></i>
+                    Ștergere Date Personale (GDPR)
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-danger mb-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-exclamation-triangle fs-3"></i>
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">Atenție! Acțiune ireversibilă</h5>
+                            <p>Această funcționalitate permite ștergerea permanentă a datelor personale, conform "dreptului de a fi uitat" din GDPR (Art. 17).</p>
+                            <p><strong>IMPORTANT:</strong> Odată șterse, datele nu mai pot fi recuperate. Vă recomandăm să exportați datele înainte de a le șterge.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" action="{{ url_for('gdpr_delete_data_post') }}" onsubmit="return confirmDelete()">
+                    <div class="mb-4">
+                        <label for="delete_type" class="form-label">Tip de ștergere</label>
+                        <select class="form-select form-select-lg" id="delete_type" name="delete_type" required>
+                            <option value="" selected disabled>Selectați tipul de ștergere</option>
+                            <option value="student">Doar date elev (păstrează părintele)</option>
+                            <option value="student_complete">Date complete elev (inclusiv note)</option>
+                            <option value="parent">Doar date părinte (păstrează elevul)</option>
+                            <option value="all">Date complete (elev + părinte + note)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="subject_id" class="form-label">Selectați persoana</label>
+                        <select class="form-select form-select-lg" id="subject_id" name="subject_id" required>
+                            <option value="" selected disabled>Selectați elevul</option>
+                            {% for student in students %}
+                                <option value="{{ student.id }}">{{ student.name }} ({{ student.class_name }}) - Părinte: {{ student.parent_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="anonymize" name="anonymize" checked>
+                            <label class="form-check-label" for="anonymize">
+                                Anonimizează în loc de ștergere completă (păstrează date statistice fără informații personale)
+                            </label>
+                        </div>
+                        <div class="form-text">Recomandăm anonimizarea pentru a păstra date statistice importante, fără a compromite confidențialitatea.</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="confirmation" class="form-label">Confirmarea ștergerii</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-danger text-white">Tastați ȘTERGE</span>
+                            <input type="text" class="form-control" id="confirmation" name="confirmation" required placeholder="Tastați ȘTERGE pentru confirmare">
+                        </div>
+                        <div class="form-text text-danger">Pentru a confirma această acțiune ireversibilă, tastați cuvântul "ȘTERGE" în câmpul de mai sus.</div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger btn-lg" id="deleteButton" disabled>
+                            <i class="fas fa-trash-alt me-2"></i>
+                            Șterge datele permanet
+                        </button>
+                        <a href="{{ url_for('gdpr_settings') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Anulează și revino
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const confirmationInput = document.getElementById('confirmation');
+    const deleteButton = document.getElementById('deleteButton');
+    
+    confirmationInput.addEventListener('input', function() {
+        if (this.value === 'ȘTERGE') {
+            deleteButton.disabled = false;
+        } else {
+            deleteButton.disabled = true;
+        }
+    });
+    
+    // Funcția de confirmare finală
+    window.confirmDelete = function() {
+        return confirm('ATENȚIE! Sunteți pe cale să ștergeți date personale din sistem. Această acțiune este IREVERSIBILĂ. Doriți să continuați?');
+    }
+});
+</script>
+{% endblock %}

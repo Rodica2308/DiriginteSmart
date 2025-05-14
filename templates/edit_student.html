@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-user-edit me-3 text-primary"></i>
+                    Editare Elev
+                </h2>
+            </div>
+            <div class="card-body">
+                <form action="{{ url_for('edit_student', student_id=student.id) }}" method="post" class="row g-3">
+                    <div class="col-md-6">
+                        <label for="name" class="form-label">Nume Elev</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ student.name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="class_name" class="form-label">Clasa</label>
+                        <input type="text" class="form-control" id="class_name" name="class_name" value="{{ student.class_name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="parent_name" class="form-label">Nume Părinte</label>
+                        <input type="text" class="form-control" id="parent_name" name="parent_name" value="{{ student.parent_name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="parent_email" class="form-label">Email Părinte</label>
+                        <input type="email" class="form-control" id="parent_email" name="parent_email" value="{{ student.parent_email }}" required>
+                    </div>
+                    
+                    <div class="col-12 mt-4">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Salvează Modificările
+                            </button>
+                            <a href="{{ url_for('manage_students') }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Anulează
+                            </a>
+                        </div>
+                    </div>
+                </form>
+                
+                {% if student.grades %}
+                    <div class="mt-5">
+                        <h4 class="border-bottom pb-2 mb-3">
+                            <i class="fas fa-list-alt me-2 text-primary"></i>
+                            Note Elev
+                        </h4>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Materie</th>
+                                        <th class="text-center">Notă</th>
+                                        <th>Data</th>
+                                        <th class="text-end">Acțiuni</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for grade in student.grades %}
+                                        <tr>
+                                            <td>{{ grade.subject.name }}</td>
+                                            <td class="text-center">
+                                                <span class="badge bg-primary rounded-pill fs-6">{{ grade.value }}</span>
+                                            </td>
+                                            <td>{{ grade.date.strftime('%d/%m/%Y') }}</td>
+                                            <td class="text-end">
+                                                <div class="btn-group btn-group-sm">
+                                                    <a href="{{ url_for('edit_grade', grade_id=grade.id) }}" class="btn btn-outline-primary">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <button class="btn btn-outline-danger delete-grade" data-grade-id="{{ grade.id }}">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ștergere notă
+    document.querySelectorAll('.delete-grade').forEach(button => {
+        button.addEventListener('click', function() {
+            const gradeId = this.getAttribute('data-grade-id');
+            
+            if (confirm('Sunteți sigur că doriți să ștergeți această notă?')) {
+                fetch(`/delete-grade/${gradeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reîncarcă pagina pentru a reflecta modificările
+                        window.location.reload();
+                    } else {
+                        alert('Eroare: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('A apărut o eroare. Verificați consola pentru detalii.');
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

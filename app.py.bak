@@ -1,0 +1,737 @@
+import os
+import logging
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+import tempfile
+import csv
+import time
+import datetime
+from sqlalchemy import func, desc
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import DeclarativeBase
+from werkzeug.middleware.proxy_fix import ProxyFix
+from utils.csv_processor import process_csv_data
+from utils.email_sender import send_email_notification
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Definirea clasei de bază pentru SQLAlchemy
+class Base(DeclarativeBase):
+    pass
+
+# Inițializare SQLAlchemy
+db = SQLAlchemy(model_class=Base)
+
+# Initialize Flask app
+app = Flask(__name__)
+app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# Configurare bază de date
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///grades.db")
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_recycle": 300,
+    "pool_pre_ping": True,
+}
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Inițializare bază de date
+db.init_app(app)
+
+# Importăm modelele după inițializarea db
+from models import Student, Subject, Grade
+
+# Creăm baza de date și adăugăm materii inițiale
+with app.app_context():
+    db.create_all()
+    
+    # Adăugăm materii default
+    try:
+        # Verificăm dacă există deja materii
+        if Subject.query.count() == 0:
+            default_subjects = [
+                # Materii principale
+                "Matematică", "Română", "Istorie", "Geografie", "Fizică", 
+                "Chimie", "Biologie", "Informatică", "Engleză", "Franceză",
+                # Materii suplimentare
+                "Educație Fizică", "Educație Muzicală", "Educație Plastică", 
+                "Educație Civică", "Psihologie", "Economie", "Filosofie", 
+                "Tehnologie", "Religie", "Logică"
+            ]
+            
+            for subject_name in default_subjects:
+                subject = Subject(name=subject_name)
+                db.session.add(subject)
+            
+            db.session.commit()
+            logger.info(f"Added {len(default_subjects)} default subjects")
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error adding default subjects: {str(e)}")
+
+@app.route('/')
+def index():
+    now = datetime.datetime.now()
+    return render_template('index.html', now=now)
+    
+@app.route('/add-grades')
+def add_grades_form():
+    now = datetime.datetime.now()
+    students = Student.query.all()
+    subjects = Subject.query.all()
+    return render_template('add_grades.html', now=now, students=students, subjects=subjects)
+
+@app.route('/view-grades')
+def view_grades():
+    now = datetime.datetime.now()
+    
+    # Obține parametrii de filtrare
+    student_id = request.args.get('student_id')
+    subject_id = request.args.get('subject_id')
+    
+    # Obține toți studenții și materiile pentru filtre
+    students = Student.query.order_by(Student.name).all()
+    subjects = Subject.query.order_by(Subject.name).all()
+    
+    # Obține toate notele
+    grades_query = Grade.query
+    
+    # Aplicare filtre la note
+    if student_id:
+        grades_query = grades_query.filter(Grade.student_id == student_id)
+    if subject_id:
+        grades_query = grades_query.filter(Grade.subject_id == subject_id)
+        
+    grades = grades_query.order_by(Grade.date.desc()).all()
+    
+    # Dicționar pentru mediile elevilor
+    student_averages = {}
+    
+    # Procesează toți elevii pentru a calcula mediile
+    for student in students:
+        # Obține toate notele elevului
+        student_grades = Grade.query.filter_by(student_id=student.id).all()
+        
+        # Organizează notele pe materii
+        subject_grades = {}
+        for grade in student_grades:
+            if grade.subject_id not in subject_grades:
+                subject_grades[grade.subject_id] = []
+            subject_grades[grade.subject_id].append(grade.value)
+        
+        # Dacă elevul are note, calculează mediile
+        if subject_grades:
+            # Inițializează structura de date pentru elev
+            student_averages[str(student.id)] = {
+                'name': student.name,
+                'class_name': student.class_name,
+                'subject_averages': [],
+                'overall_average': 0
+            }
+            
+            # Calculează media pentru fiecare materie
+            overall_sum = 0
+            subject_count = 0
+            
+            for subject_id, grades in subject_grades.items():
+                if grades:
+                    subject = Subject.query.get(subject_id)
+                    average = sum(grades) / len(grades)
+                    
+                    student_averages[str(student.id)]['subject_averages'].append({
+                        'subject_id': subject_id,
+                        'subject_name': subject.name,
+                        'average': average,
+                        'grade_count': len(grades)
+                    })
+                    
+                    overall_sum += average
+                    subject_count += 1
+            
+            # Calculează media generală
+            if subject_count > 0:
+                student_averages[str(student.id)]['overall_average'] = overall_sum / subject_count
+            else:
+                student_averages[str(student.id)]['overall_average'] = 0
+    
+    # Sortează mediile pe materii pentru fiecare elev
+    for student_id in student_averages:
+        student_averages[student_id]['subject_averages'].sort(key=lambda x: x['subject_name'])
+    
+    return render_template(
+        'view_grades.html',
+        now=now,
+        students=students,
+        subjects=subjects,
+        grades=grades,
+        student_averages=student_averages
+    )
+
+@app.route('/add-student', methods=['POST'])
+def add_student():
+    name = request.form.get('name')
+    class_name = request.form.get('class_name')
+    parent_name = request.form.get('parent_name')
+    parent_email = request.form.get('parent_email')
+    
+    # Validare date
+    if not all([name, class_name, parent_name, parent_email]):
+        flash('Toate câmpurile sunt obligatorii', 'danger')
+        return redirect(url_for('add_grades_form'))
+    
+    # Creare student nou
+    student = Student(name=name, class_name=class_name, 
+                     parent_name=parent_name, parent_email=parent_email)
+    
+    db.session.add(student)
+    db.session.commit()
+    
+    flash(f'Elevul {name} a fost adăugat cu succes', 'success')
+    return redirect(url_for('add_grades_form'))
+
+@app.route('/manage-subjects')
+def manage_subjects():
+    now = datetime.datetime.now()
+    subjects = Subject.query.order_by(Subject.name).all()
+    return render_template('manage_subjects.html', now=now, subjects=subjects)
+
+@app.route('/add-subject', methods=['POST'])
+def add_subject():
+    name = request.form.get('name')
+    
+    # Verifică dacă numele materiei există deja
+    existing_subject = Subject.query.filter_by(name=name).first()
+    if existing_subject:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': 'Această materie există deja'
+            })
+        else:
+            flash('Această materie există deja', 'warning')
+            return redirect(url_for('manage_subjects'))
+    
+    # Verifică limita de 20 de materii
+    if Subject.query.count() >= 20:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': 'Numărul maxim de materii (20) a fost atins'
+            })
+        else:
+            flash('Numărul maxim de materii (20) a fost atins', 'warning')
+            return redirect(url_for('manage_subjects'))
+    
+    # Adaugă materia nouă
+    new_subject = Subject(name=name)
+    db.session.add(new_subject)
+    db.session.commit()
+    
+    # Răspuns pentru cereri AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'subject': {
+                'id': new_subject.id,
+                'name': new_subject.name
+            }
+        })
+    
+    flash(f'Materia {name} a fost adăugată cu succes', 'success')
+    
+    # Redirect în funcție de pagina de unde a venit cererea
+    referer = request.headers.get('Referer', '')
+    if '/add-grades' in referer:
+        return redirect(url_for('add_grades_form'))
+    else:
+        return redirect(url_for('manage_subjects'))
+
+@app.route('/edit-subject/<int:subject_id>', methods=['POST'])
+def edit_subject(subject_id):
+    subject = Subject.query.get_or_404(subject_id)
+    new_name = request.form.get('name')
+    
+    # Verifică dacă numele nou există deja la o altă materie
+    existing_subject = Subject.query.filter(Subject.name == new_name, Subject.id != subject_id).first()
+    if existing_subject:
+        flash('Există deja o materie cu acest nume', 'warning')
+        return redirect(url_for('manage_subjects'))
+    
+    # Actualizează materia
+    subject.name = new_name
+    db.session.commit()
+    
+    flash(f'Materia a fost actualizată cu succes', 'success')
+    return redirect(url_for('manage_subjects'))
+
+@app.route('/delete-subject/<int:subject_id>', methods=['POST'])
+def delete_subject(subject_id):
+    subject = Subject.query.get_or_404(subject_id)
+    
+    # Verifică dacă materia are note asociate
+    if len(subject.grades) > 0:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': 'Nu se poate șterge materia deoarece are note asociate'
+            })
+        flash('Nu se poate șterge materia deoarece are note asociate', 'danger')
+        return redirect(url_for('manage_subjects'))
+    
+    try:
+        db.session.delete(subject)
+        db.session.commit()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'message': 'Materia a fost ștearsă cu succes'
+            })
+        
+        flash('Materia a fost ștearsă cu succes', 'success')
+        
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': f'Eroare la ștergerea materiei: {str(e)}'
+            })
+        
+        flash(f'Eroare la ștergerea materiei: {str(e)}', 'danger')
+    
+    return redirect(url_for('manage_subjects'))
+
+@app.route('/add-grade', methods=['POST'])
+def add_grade():
+    student_id = request.form.get('student_id')
+    subject_id = request.form.get('subject_id')
+    value = request.form.get('value')
+    date_str = request.form.get('date')
+    
+    # Validare date
+    if not all([student_id, subject_id, value]):
+        flash('Toate câmpurile sunt obligatorii', 'danger')
+        return redirect(url_for('add_grades_form'))
+    
+    try:
+        # Convertire în float pentru valoarea notei
+        value = float(value)
+        
+        # Validare valoare notă
+        if value < 1 or value > 10:
+            flash('Nota trebuie să fie între 1 și 10', 'danger')
+            return redirect(url_for('add_grades_form'))
+        
+        # Conversie dată
+        date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else datetime.datetime.now().date()
+        
+        # Creare notă nouă
+        grade = Grade(
+            student_id=student_id,
+            subject_id=subject_id,
+            value=value,
+            date=date_obj
+        )
+        
+        db.session.add(grade)
+        db.session.commit()
+        
+        flash('Nota a fost adăugată cu succes', 'success')
+        
+    except ValueError:
+        flash('Valoarea notei nu este validă', 'danger')
+    except Exception as e:
+        flash(f'Eroare la adăugarea notei: {str(e)}', 'danger')
+    
+    return redirect(url_for('add_grades_form'))
+
+@app.route('/delete-grade/<int:grade_id>', methods=['POST'])
+def delete_grade(grade_id):
+    grade = Grade.query.get_or_404(grade_id)
+    
+    try:
+        db.session.delete(grade)
+        db.session.commit()
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'message': 'Nota a fost ștearsă cu succes'
+            })
+        
+        flash('Nota a fost ștearsă cu succes', 'success')
+        
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': False,
+                'message': f'Eroare la ștergerea notei: {str(e)}'
+            })
+        
+        flash(f'Eroare la ștergerea notei: {str(e)}', 'danger')
+    
+    return redirect(url_for('view_grades'))
+    
+@app.route('/send-notifications-page')
+def send_notifications_page():
+    now = datetime.datetime.now()
+    
+    students = Student.query.order_by(Student.name).all()
+    parent_emails = set()
+    
+    for student in students:
+        if student.parent_email and student.parent_email.strip():
+            parent_emails.add(student.parent_email)
+    
+    return render_template('send_notifications.html', 
+                           now=now, 
+                           students=students,
+                           parents_count=len(parent_emails))
+
+@app.route('/send-notifications', methods=['POST'])
+def send_notifications():
+    now = datetime.datetime.now()
+    
+    email_user = request.form.get('email_user', '')
+    email_pass = request.form.get('email_pass', '')
+    smtp_server = request.form.get('smtp_server', 'smtp.gmail.com')
+    smtp_port = int(request.form.get('smtp_port', 587))
+    
+    # Store email settings for potential re-use
+    session['email_user'] = email_user
+    session['smtp_server'] = smtp_server
+    session['smtp_port'] = smtp_port
+    
+    # Email credentials validation
+    if not email_user or not email_pass:
+        flash('Credențialele de email sunt obligatorii', 'danger')
+        return redirect(url_for('send_notifications_page'))
+    
+    # Obține toți elevii și notele lor
+    students = Student.query.all()
+    
+    # Grupează datele după email-ul părintelui
+    grouped_data = {}
+    
+    for student in students:
+        parent_email = student.parent_email
+        
+        if not parent_email in grouped_data:
+            grouped_data[parent_email] = {
+                'parent_name': student.parent_name,
+                'students': {},
+                'grades': []
+            }
+        
+        # Adaugă informații despre elev
+        student_id = str(student.id)
+        grouped_data[parent_email]['students'][student_id] = {
+            'name': student.name,
+            'class': student.class_name,
+            'overall_average': 0,
+            'subject_averages': []
+        }
+        
+        # Calculează mediile pe materii
+        subject_grades = {}
+        
+        for grade in student.grades:
+            subject_name = grade.subject.name
+            
+            if subject_name not in subject_grades:
+                subject_grades[subject_name] = []
+            
+            subject_grades[subject_name].append(grade.value)
+            
+            # Adaugă notele individuale
+            grade_text = f"{student.name} (Clasa {student.class_name}) - {subject_name}: {grade.value} din {grade.date.strftime('%d-%m-%Y')}"
+            grouped_data[parent_email]['grades'].append(grade_text)
+        
+        # Calculează mediile pe materii și media generală
+        total_average = 0
+        subjects_count = 0
+        
+        for subject_name, grades in subject_grades.items():
+            subject_avg = sum(grades) / len(grades)
+            total_average += subject_avg
+            subjects_count += 1
+            
+            grouped_data[parent_email]['students'][student_id]['subject_averages'].append({
+                'subject': subject_name,
+                'average': subject_avg,
+                'count': len(grades)
+            })
+            
+            avg_text = f"{student.name} (Clasa {student.class_name}) - Media la {subject_name}: {subject_avg:.2f}"
+            
+            if 'averages' not in grouped_data[parent_email]:
+                grouped_data[parent_email]['averages'] = []
+            
+            grouped_data[parent_email]['averages'].append(avg_text)
+        
+        # Calculează media generală
+        if subjects_count > 0:
+            overall_average = total_average / subjects_count
+            grouped_data[parent_email]['students'][student_id]['overall_average'] = overall_average
+            
+            overall_text = f"{student.name} (Clasa {student.class_name}) - Media generală: {overall_average:.2f}"
+            grouped_data[parent_email]['averages'].append(overall_text)
+    
+    results = {
+        'total': len(grouped_data),
+        'success': 0,
+        'failed': 0,
+        'details': []
+    }
+    
+    # Trimite email-uri fiecărui părinte
+    for email, info in grouped_data.items():
+        try:
+            parent_name = info['parent_name']
+            grades = info['grades']
+            
+            if not grades:
+                continue  # Nu trimite email dacă nu există note
+            
+            # Creează conținutul email-ului
+            subject = "Notificare Note Școlare"
+            body = f"Bună ziua D-le/D-na {parent_name},\n\n"
+            
+            # Adaugă mediile elevilor, dacă există
+            if 'averages' in info and info['averages']:
+                body += "MEDII ȘCOLARE:\n"
+                body += "\n".join(info['averages'])
+                body += "\n\n"
+            
+            # Adaugă notele individuale
+            body += "NOTE RECENTE:\n"
+            body += "\n".join(grades)
+            
+            body += "\n\nO zi bună!\nSecretariatul Școlii"
+            
+            # Trimite email-ul
+            success = send_email_notification(
+                email_user=email_user,
+                email_pass=email_pass,
+                smtp_server=smtp_server,
+                smtp_port=smtp_port,
+                recipient=email,
+                subject=subject,
+                body=body
+            )
+            
+            # Urmărește rezultatele
+            status = "Succes" if success else "Eșuat"
+            results['details'].append({
+                'email': email,
+                'name': parent_name,
+                'status': status,
+                'grades_count': len(grades)
+            })
+            
+            if success:
+                results['success'] += 1
+            else:
+                results['failed'] += 1
+                
+            # Mică întârziere pentru a evita supraîncărcarea serverului SMTP
+            time.sleep(0.5)
+            
+        except Exception as e:
+            logger.error(f"Eroare la trimiterea email-ului către {email}: {str(e)}")
+            results['failed'] += 1
+            results['details'].append({
+                'email': email,
+                'name': info.get('parent_name', 'Necunoscut'),
+                'status': f"Eroare: {str(e)}",
+                'grades_count': len(info.get('grades', []))
+            })
+    
+    return render_template('results.html', results=results, now=now)
+
+# Funcționalitatea pentru reeditarea notelor
+@app.route('/edit-grade/<int:grade_id>', methods=['GET', 'POST'])
+def edit_grade(grade_id):
+    # Obține nota care va fi editată
+    grade = Grade.query.get_or_404(grade_id)
+    
+    if request.method == 'POST':
+        # Obține noile valori pentru notă
+        value = request.form.get('value')
+        date_str = request.form.get('date')
+        subject_id = request.form.get('subject_id')
+        
+        # Validare
+        if not value or not date_str or not subject_id:
+            flash('Toate câmpurile sunt obligatorii', 'danger')
+            return redirect(url_for('edit_grade', grade_id=grade_id))
+        
+        try:
+            # Convertește și validează valoarea notei
+            value = float(value)
+            if value < 1 or value > 10:
+                flash('Nota trebuie să fie între 1 și 10', 'danger')
+                return redirect(url_for('edit_grade', grade_id=grade_id))
+                
+            # Convertește și validează data
+            date_obj = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+            
+            # Verifică dacă materia există
+            subject = Subject.query.get(subject_id)
+            if not subject:
+                flash('Materia selectată nu există', 'danger')
+                return redirect(url_for('edit_grade', grade_id=grade_id))
+            
+            # Actualizează nota
+            grade.value = value
+            grade.date = date_obj
+            grade.subject_id = subject_id
+            
+            db.session.commit()
+            
+            flash('Nota a fost actualizată cu succes', 'success')
+            return redirect(url_for('view_grades'))
+            
+        except ValueError as e:
+            flash(f'Eroare la convertirea valorilor: {str(e)}', 'danger')
+            return redirect(url_for('edit_grade', grade_id=grade_id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Eroare la actualizarea notei: {str(e)}', 'danger')
+            return redirect(url_for('edit_grade', grade_id=grade_id))
+    
+    # Metoda GET - afișează formularul de editare
+    now = datetime.datetime.now()
+    subjects = Subject.query.all()
+    
+    return render_template('edit_grade.html', 
+                          now=now, 
+                          grade=grade, 
+                          subjects=subjects)
+    
+    grouped_data = session['grouped_data']
+    results = {
+        'total': len(grouped_data),
+        'success': 0,
+        'failed': 0,
+        'details': []
+    }
+    
+    # Send emails to each parent
+    for email, info in grouped_data.items():
+        try:
+            parent_name = info['parent_name']
+            grades = info['grades']
+            
+            # Create email content
+            subject = "Notificare Note Școlare"
+            body = f"Bună ziua D-le/D-na {parent_name},\n\n"
+            
+            # Add student averages if available
+            if 'averages' in info and info['averages']:
+                body += "MEDII ȘCOLARE:\n"
+                body += "\n".join(info['averages'])
+                body += "\n\n"
+            
+            # Add individual grades
+            body += "NOTE RECENTE:\n"
+            body += "\n".join(grades)
+            
+            body += "\n\nO zi bună!\nSecretariatul Școlii"
+            
+            # Send the email
+            success = send_email_notification(
+                email_user=email_user,
+                email_pass=email_pass,
+                smtp_server=smtp_server,
+                smtp_port=smtp_port,
+                recipient=email,
+                subject=subject,
+                body=body
+            )
+            
+            # Track results
+            status = "Success" if success else "Failed"
+            results['details'].append({
+                'email': email,
+                'name': parent_name,
+                'status': status,
+                'grades_count': len(grades)
+            })
+            
+            if success:
+                results['success'] += 1
+            else:
+                results['failed'] += 1
+                
+            # Small delay to avoid overwhelming the SMTP server
+            time.sleep(0.5)
+            
+        except Exception as e:
+            logger.error(f"Error sending email to {email}: {str(e)}")
+            results['failed'] += 1
+            results['details'].append({
+                'email': email,
+                'name': info.get('parent_name', 'Unknown'),
+                'status': f"Error: {str(e)}",
+                'grades_count': len(info.get('grades', []))
+            })
+    
+    # Clean up the temporary file
+    if 'temp_file_path' in session:
+        try:
+            os.unlink(session['temp_file_path'])
+        except Exception as e:
+            logger.warning(f"Failed to delete temporary file: {str(e)}")
+    
+    # Clear grouped data from session
+    session.pop('grouped_data', None)
+    session.pop('temp_file_path', None)
+    
+    return render_template('results.html', results=results, now=now)
+
+@app.route('/sample')
+def get_sample_csv():
+    now = datetime.datetime.now()
+    sample_data = [
+        ["NumeElev", "Clasa", "Materie", "Nota", "Data", "NumeParinte", "EmailParinte"],
+        # Elev 1 - Popescu Ion (mai multe note per materii)
+        ["Popescu Ion", "5A", "Matematica", "10", "2023-10-15", "Popescu Vasile", "vasile.popescu@email.com"],
+        ["Popescu Ion", "5A", "Matematica", "9", "2023-10-26", "Popescu Vasile", "vasile.popescu@email.com"],
+        ["Popescu Ion", "5A", "Matematica", "8", "2023-11-05", "Popescu Vasile", "vasile.popescu@email.com"],
+        ["Popescu Ion", "5A", "Romana", "7", "2023-10-18", "Popescu Vasile", "vasile.popescu@email.com"],
+        ["Popescu Ion", "5A", "Romana", "8", "2023-11-02", "Popescu Vasile", "vasile.popescu@email.com"],
+        ["Popescu Ion", "5A", "Istorie", "9", "2023-10-27", "Popescu Vasile", "vasile.popescu@email.com"],
+        ["Popescu Ion", "5A", "Istorie", "10", "2023-11-10", "Popescu Vasile", "vasile.popescu@email.com"],
+        ["Popescu Ion", "5A", "Engleza", "8", "2023-10-20", "Popescu Vasile", "vasile.popescu@email.com"],
+        
+        # Elev 2 - Ionescu Ana (același părinte ca Maria din alta clasă)
+        ["Ionescu Ana", "5A", "Matematica", "8", "2023-10-17", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Ana", "5A", "Matematica", "7", "2023-10-30", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Ana", "5A", "Romana", "9", "2023-10-19", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Ana", "5A", "Romana", "10", "2023-11-01", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Ana", "5A", "Biologie", "8", "2023-10-25", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Ana", "5A", "Engleza", "9", "2023-11-07", "Ionescu Elena", "elena.ionescu@email.com"],
+        
+        # Elev 3 - Ionescu Maria (soră cu Ana, același părinte)
+        ["Ionescu Maria", "7B", "Matematica", "7", "2023-10-16", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Maria", "7B", "Matematica", "6", "2023-10-29", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Maria", "7B", "Fizica", "8", "2023-10-22", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Maria", "7B", "Chimie", "9", "2023-11-03", "Ionescu Elena", "elena.ionescu@email.com"],
+        ["Ionescu Maria", "7B", "Istorie", "7", "2023-10-28", "Ionescu Elena", "elena.ionescu@email.com"],
+        
+        # Elev 4 - Georgescu Radu (alt părinte)
+        ["Georgescu Radu", "6B", "Matematica", "9", "2023-10-15", "Georgescu Dan", "dan.g@email.com"],
+        ["Georgescu Radu", "6B", "Romana", "8", "2023-10-22", "Georgescu Dan", "dan.g@email.com"],
+        ["Georgescu Radu", "6B", "Biologie", "10", "2023-10-27", "Georgescu Dan", "dan.g@email.com"],
+        ["Georgescu Radu", "6B", "Istorie", "7", "2023-11-05", "Georgescu Dan", "dan.g@email.com"]
+    ]
+    
+    # Create a sample CSV file
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.csv')
+    with open(temp_file.name, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerows(sample_data)
+    
+    return render_template('index.html', sample_path=temp_file.name, now=now)

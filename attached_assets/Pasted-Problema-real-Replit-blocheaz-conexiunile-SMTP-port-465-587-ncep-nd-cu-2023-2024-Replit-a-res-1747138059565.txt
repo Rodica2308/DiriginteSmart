@@ -1,0 +1,81 @@
+Problema reală: Replit blochează conexiunile SMTP (port 465/587)
+Începând cu 2023-2024, Replit a restricționat accesul la conexiuni SMTP outbound (Yahoo, Gmail, Outlook etc.) din motive de securitate și abuzuri.
+
+👉 Deci: Nu poți debloca SMTP din Replit direct. Nu există setare oficială să-l "deblochezi".
+
+✅ Soluțiile reale ca să trimiți email din Replit:
+🔹 1. Folosești servicii prin API (nu SMTP):
+➡️ Acestea merg sigur pe Replit:
+
+SendGrid ✅
+
+Mailgun ✅
+
+Brevo (ex-Sendinblue) ✅
+
+Postmark, Resend, Elastic Email ✅
+
+🟢 Recomand SendGrid — cel mai ușor de folosit pentru proiectele de genul „Diriginte Smart”.
+
+🔹 2. Cum funcționează prin API (nu prin SMTP)
+Replit permite apeluri HTTPS prin requests / urllib.
+
+API-ul SendGrid nu folosește porturi blocate.
+
+Trimiți emailul ca request HTTP securizat.
+
+✅ Pași ca să-ți meargă trimiterea din Replit:
+➡️ 1. Creează cont SendGrid (gratuit)
+Link: https://sendgrid.com/free/
+
+Verifică emailul și contul.
+
+➡️ 2. Creează API Key
+Dashboard → Settings → API Keys → Create API Key.
+
+Alege Full Access (sau doar Mail Send).
+
+Copiază cheia API.
+
+➡️ 3. Salvează API Key în Replit (securizat)
+În Replit:
+
+Mergi la „Secrets” (Environment Variables).
+
+Adaugă: SENDGRID_API_KEY = cheia_ta_api.
+
+➡️ 4. Instalează SendGrid în Replit
+În Shell / Console:
+
+bash
+Copy
+Edit
+pip install sendgrid
+➡️ 5. Folosește SendGrid în codul tău Python (exemplu simplificat)
+python
+Copy
+Edit
+import os
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+
+message = Mail(
+    from_email='diriginte.smart@exemplu.ro',
+    to_emails='parinte@gmail.com',
+    subject='Situația elevului - săptămânal',
+    html_content='<p>Stimate părinte, găsiți atașat situația elevului dumneavoastră.</p>'
+)
+
+try:
+    sg = SendGridAPIClient(os.environ.get('SENDGRID_API_KEY'))
+    response = sg.send(message)
+    print(response.status_code)
+except Exception as e:
+    print(e)
+🔽 Dacă vrei să atașezi PDF-ul generat (din static/notifications_pdf/), îți arăt imediat cum.
+
+🔧 Pe scurt:
+❌ SMTP pe Replit	✅ API SendGrid
+Blocat de Replit	Funcționează sigur
+Nu poți debloca	Gratuit până la 100 emailuri/zi
+Problema ta actuală	Soluție recomandată

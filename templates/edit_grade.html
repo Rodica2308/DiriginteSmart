@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-edit me-3 text-primary"></i>
+                    Editare Notă
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <h5 class="alert-heading d-flex align-items-center">
+                        <i class="fas fa-user-graduate me-2"></i>
+                        Elev: {{ grade.student.name }}
+                    </h5>
+                    <p class="mb-0">Clasa: {{ grade.student.class_name }}</p>
+                </div>
+                
+                <form action="{{ url_for('edit_grade', grade_id=grade.id) }}" method="post" class="row g-3">
+                    <div class="col-md-6">
+                        <label for="subject" class="form-label">Materie</label>
+                        <select class="form-select" id="subject" name="subject_id" required>
+                            {% for subject in subjects %}
+                                <option value="{{ subject.id }}" {% if subject.id == grade.subject_id %}selected{% endif %}>
+                                    {{ subject.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="value" class="form-label">Notă</label>
+                        <input type="number" class="form-control" id="value" name="value" min="1" max="10" step="0.01" value="{{ grade.value }}" required>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="date" class="form-label">Data</label>
+                        <input type="date" class="form-control" id="date" name="date" value="{{ grade.date.strftime('%Y-%m-%d') }}" required>
+                    </div>
+                    
+                    <div class="col-12 mt-4">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>
+                                Salvează Modificările
+                            </button>
+                            <a href="{{ url_for('view_grades') }}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>
+                                Anulează
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

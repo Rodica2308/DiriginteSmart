@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-shield-alt me-3 text-primary"></i>
+                    Consimțământ GDPR
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-info-circle fs-3"></i>
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">Prelucrarea datelor personale</h5>
+                            <p>În conformitate cu Regulamentul (UE) 2016/679 al Parlamentului European și al Consiliului din 27 aprilie 2016 privind protecția persoanelor fizice în ceea ce privește prelucrarea datelor cu caracter personal și libera circulație a acestor date (GDPR), vă solicităm consimțământul pentru:</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" action="{{ url_for('save_gdpr_settings') }}">
+                    <div class="mb-4">
+                        <h5>Politica de protecție a datelor</h5>
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <h6>Ce date colectăm și procesăm</h6>
+                                <p>Aplicația DiriginteSmart colectează și procesează următoarele date personale:</p>
+                                <ul>
+                                    <li>Nume și prenume (elevi și părinți)</li>
+                                    <li>Adrese de email ale părinților</li>
+                                    <li>Informații academice (note, clase)</li>
+                                </ul>
+
+                                <h6>Scopul prelucrării</h6>
+                                <p>Datele sunt utilizate exclusiv pentru:</p>
+                                <ol>
+                                    <li>Gestionarea informațiilor școlare (note, absențe)</li>
+                                    <li>Comunicarea cu părinții privind evoluția academică</li>
+                                    <li>Generarea de rapoarte statistice (anonimizate)</li>
+                                </ol>
+
+                                <h6>Drepturile dumneavoastră conform GDPR</h6>
+                                <p>Conform GDPR, beneficiați de următoarele drepturi:</p>
+                                <ul>
+                                    <li>Dreptul de acces la date</li>
+                                    <li>Dreptul la rectificare și ștergere</li>
+                                    <li>Dreptul la restricționarea prelucrării</li>
+                                    <li>Dreptul la portabilitatea datelor</li>
+                                    <li>Dreptul de a retrage consimțământul</li>
+                                </ul>
+
+                                <h6>Retenția datelor</h6>
+                                <p>Datele personale sunt păstrate pe parcursul anului școlar curent. La finalul anului școlar, datele sunt arhivate în format anonimizat pentru statistici.</p>
+
+                                <h6>Detalii de contact pentru solicitări GDPR</h6>
+                                <p>Pentru orice solicitare legată de GDPR, vă rugăm să contactați secretariatul școlii sau pe administratorul platformei.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Setări consimțământ</h5>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="consent_storage" name="consent_storage" {% if current_settings.get('consent_storage') %}checked{% endif %} required>
+                                <label class="form-check-label" for="consent_storage">
+                                    <strong>Stocarea datelor</strong>: Sunt de acord cu stocarea datelor personale ale elevilor și părinților în aplicația DiriginteSmart pentru gestionarea notelor și comunicărilor.
+                                </label>
+                            </div>
+                            <div class="form-text ms-4">Această opțiune este necesară pentru funcționarea aplicației. Fără aceasta, aplicația nu poate stoca informații despre elevi și părinți.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="consent_email" name="consent_email" {% if current_settings.get('consent_email') %}checked{% endif %}>
+                                <label class="form-check-label" for="consent_email">
+                                    <strong>Comunicare prin email</strong>: Sunt de acord cu trimiterea de notificări prin email către părinți referitoare la rezultatele școlare ale elevilor.
+                                </label>
+                            </div>
+                            <div class="form-text ms-4">Dacă dezactivați această opțiune, notificările nu vor fi trimise automat prin email, dar vor fi disponibile în aplicație.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="consent_stats" name="consent_stats" {% if current_settings.get('consent_stats') %}checked{% endif %}>
+                                <label class="form-check-label" for="consent_stats">
+                                    <strong>Statistici anonimizate</strong>: Sunt de acord ca datele să fie utilizate în formă anonimizată pentru statistici și rapoarte școlare.
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="consent_retention" name="consent_retention" {% if current_settings.get('consent_retention') %}checked{% endif %}>
+                                <label class="form-check-label" for="consent_retention">
+                                    <strong>Retenția datelor</strong>: Sunt de acord cu păstrarea datelor pentru un an școlar complet, după care vor fi anonimizate.
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <h5>Informații administrator</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="gdpr_contact_name" class="form-label">Nume responsabil GDPR</label>
+                                <input type="text" class="form-control" id="gdpr_contact_name" name="gdpr_contact_name" value="{{ current_settings.get('gdpr_contact_name', '') }}" placeholder="Nume și prenume">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="gdpr_contact_email" class="form-label">Email contact GDPR</label>
+                                <input type="email" class="form-control" id="gdpr_contact_email" name="gdpr_contact_email" value="{{ current_settings.get('gdpr_contact_email', '') }}" placeholder="email@exemplu.ro">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save me-2"></i>
+                            Salvează setările GDPR
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Înapoi
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-database me-3 text-primary"></i>
+                    Export și ștergere date
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="fas fa-file-export me-2 text-primary"></i>
+                                    Export date personale
+                                </h5>
+                                <p class="card-text">Exportați datele personale ale unui elev sau părinte în format JSON sau CSV pentru portabilitate conform GDPR.</p>
+                                <a href="{{ url_for('gdpr_export_data') }}" class="btn btn-primary">
+                                    <i class="fas fa-download me-2"></i>
+                                    Export date
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100 border-danger">
+                            <div class="card-body">
+                                <h5 class="card-title text-danger">
+                                    <i class="fas fa-trash-alt me-2"></i>
+                                    Ștergere date personale
+                                </h5>
+                                <p class="card-text">Ștergeți definitiv datele unui elev sau părinte din sistem (acțiune ireversibilă).</p>
+                                <a href="{{ url_for('gdpr_delete_data') }}" class="btn btn-outline-danger">
+                                    <i class="fas fa-trash-alt me-2"></i>
+                                    Ștergere date
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-exclamation-triangle fs-3"></i>
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">Atenție!</h5>
+                            <p>Ștergerea datelor personale este o acțiune ireversibilă care poate afecta funcționalitatea aplicației. Vă recomandăm să exportați datele înainte de a le șterge.</p>
+                            <p class="mb-0">Conform GDPR, utilizatorul are dreptul de a solicita ștergerea datelor sale personale ("dreptul de a fi uitat").</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-file-contract fs-3"></i>
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">Formularele de consimțământ pentru părinți</h5>
+                            <p>Pentru a transmite informații GDPR părinților, puteți genera și trimite formulare de consimțământ personalizate:</p>
+                            <a href="{{ url_for('gdpr_parent_forms') }}" class="btn btn-primary">
+                                <i class="fas fa-file-contract me-2"></i>
+                                Formulare consimțământ părinți
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

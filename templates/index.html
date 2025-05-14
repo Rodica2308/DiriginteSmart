@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+
+            <div class="card-body">
+                
+                <!-- ELEVI - Secțiunea principală -->
+                <div class="card mb-4">
+                    <div class="card-header bg-primary bg-opacity-75">
+                        <h4 class="card-title mb-0">
+                            <i class="fas fa-users me-2"></i>
+                            Elevii mei
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-primary text-white">
+                                        <i class="fas fa-search"></i>
+                                    </span>
+                                    <input type="text" id="mainStudentSearch" class="form-control" placeholder="Caută elev...">
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <a href="{{ url_for('manage_students') }}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-1"></i> Adaugă Elev Nou
+                                </a>
+                            </div>
+                        </div>
+                        
+                        {% if students_by_class %}
+                            <div class="accordion" id="classAccordion">
+                                {% for class_name, class_students in students_by_class.items() %}
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="heading{{ class_name|replace(' ', '') }}">
+                                            <button class="accordion-button" type="button" data-bs-toggle="collapse" 
+                                                    data-bs-target="#collapse{{ class_name|replace(' ', '') }}" 
+                                                    aria-expanded="true" aria-controls="collapse{{ class_name|replace(' ', '') }}">
+                                                <i class="fas fa-graduation-cap me-2 text-primary"></i>
+                                                <strong>Clasa {{ class_name }}</strong> 
+                                                <span class="badge bg-primary rounded-pill ms-2">{{ class_students|length }} elevi</span>
+                                            </button>
+                                        </h2>
+                                        <div id="collapse{{ class_name|replace(' ', '') }}" class="accordion-collapse collapse show" 
+                                             aria-labelledby="heading{{ class_name|replace(' ', '') }}" data-bs-parent="#classAccordion">
+                                            <div class="accordion-body">
+                                                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                                                    {% for student in class_students %}
+                                                        <div class="col student-card" data-student-name="{{ student.name|lower }}">
+                                                            <a href="{{ url_for('student_profile', student_id=student.id) }}" 
+                                                               class="card h-100 text-decoration-none student-profile-link">
+                                                                <div class="card-body text-center">
+                                                                    <div class="student-icon mb-2">
+                                                                        <i class="fas fa-user-graduate text-primary fs-3"></i>
+                                                                    </div>
+                                                                    <h5 class="card-title mb-1">{{ student.name }}</h5>
+                                                                    <p class="card-text text-muted small mb-2">
+                                                                        Părinte: {{ student.parent_name }}
+                                                                    </p>
+                                                                    
+                                                                    {% set grade_count = student.grades|length %}
+                                                                    {% if grade_count > 0 %}
+                                                                        {% set total = namespace(sum=0) %}
+                                                                        {% for grade in student.grades %}
+                                                                            {% set total.sum = total.sum + grade.value %}
+                                                                        {% endfor %}
+                                                                        {% set avg = total.sum / grade_count %}
+                                                                        
+                                                                        <div class="mt-2">
+                                                                            <span class="badge 
+                                                                                {% if avg >= 8 %}bg-success
+                                                                                {% elif avg >= 5 %}bg-warning
+                                                                                {% else %}bg-danger{% endif %} rounded-pill px-3 py-2">
+                                                                                Media: {{ "%.2f"|format(avg) }}
+                                                                            </span>
+                                                                        </div>
+                                                                    {% else %}
+                                                                        <div class="mt-2">
+                                                                            <span class="badge bg-secondary rounded-pill px-3 py-2">
+                                                                                Fără note
+                                                                            </span>
+                                                                        </div>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <div class="card-footer bg-transparent text-center">
+                                                                    <span class="btn btn-sm btn-primary w-100">
+                                                                        <i class="fas fa-plus me-1"></i> Adaugă Notă
+                                                                    </span>
+                                                                </div>
+                                                            </a>
+                                                        </div>
+                                                    {% endfor %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Nu există elevi înregistrați în sistem. 
+                                <a href="{{ url_for('manage_students') }}" class="alert-link">Adăugați primul elev</a>.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Acțiuni rapide au fost mutate în meniul principal -->
+                <!-- Secțiunea a fost eliminată de aici conform cerințelor -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mainStudentSearch = document.getElementById('mainStudentSearch');
+    const studentCards = document.querySelectorAll('.student-card');
+    
+    if (mainStudentSearch) {
+        mainStudentSearch.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            
+            studentCards.forEach(card => {
+                const studentName = card.getAttribute('data-student-name');
+                
+                if (studentName.includes(searchTerm) || searchTerm === '') {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

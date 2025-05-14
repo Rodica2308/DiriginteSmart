@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-user-graduate me-3 text-primary"></i>
+                    Profil Elev: {{ student.name }}
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-info-circle me-2 text-primary"></i>
+                                    Informații Elev
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <strong>Nume:</strong>
+                                        <span>{{ student.name }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <strong>Clasa:</strong>
+                                        <span class="badge bg-primary rounded-pill">{{ student.class_name }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <strong>Părinte:</strong>
+                                        <span>{{ student.parent_name }}</span>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <strong>Email Părinte:</strong>
+                                        <code>{{ student.parent_email }}</code>
+                                    </li>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <strong>Media Generală:</strong>
+                                        {% if student_average > 0 %}
+                                            <span class="badge {% if student_average >= 8 %}bg-success{% elif student_average >= 5 %}bg-warning{% else %}bg-danger{% endif %} rounded-pill fs-6">
+                                                {{ "%.2f"|format(student_average) }}
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary rounded-pill">N/A</span>
+                                        {% endif %}
+                                    </li>
+                                </ul>
+                                <div class="mt-3">
+                                    <a href="{{ url_for('edit_student', student_id=student.id) }}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-edit me-1"></i> Editează
+                                    </a>
+                                    <a href="{{ url_for('send_notifications_page') }}?student_id={{ student.id }}" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-envelope me-1"></i> Trimite Notificare
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="card-title mb-0">
+                                    <i class="fas fa-plus-circle me-2 text-success"></i>
+                                    Adaugă Note
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <form action="{{ url_for('add_grade_for_student', student_id=student.id) }}" method="post" class="row g-3">
+                                    <input type="hidden" name="student_id" value="{{ student.id }}">
+                                    
+                                    <div class="col-12">
+                                        <label for="subject" class="form-label">Materie</label>
+                                        <select class="form-select" id="subject" name="subject_id" required>
+                                            <option value="" disabled {% if not selected_subject_id %}selected{% endif %}>Selectați materia</option>
+                                            {% for subject in subjects %}
+                                                <option value="{{ subject.id }}" {% if selected_subject_id and selected_subject_id|string == subject.id|string %}selected{% endif %}>{{ subject.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-12">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0">Note</h6>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="addGradeRow">
+                                                <i class="fas fa-plus-circle me-1"></i>Adaugă notă
+                                            </button>
+                                        </div>
+                                        
+                                        <div id="gradesContainer" class="mb-3">
+                                            <div class="row g-2 mb-2 grade-row">
+                                                <div class="col-md-6">
+                                                    <input type="number" class="form-control" name="values[]" min="1" max="10" step="0.01" placeholder="Notă" required>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <input type="date" class="form-control" name="dates[]" value="{{ now.strftime('%Y-%m-%d') }}">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-save me-2"></i>
+                                            Salvează Notele
+                                        </button>
+                                    </div>
+                                </form>
+                                
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function() {
+                                        const addBtn = document.getElementById('addGradeRow');
+                                        const container = document.getElementById('gradesContainer');
+                                        
+                                        addBtn.addEventListener('click', function() {
+                                            const row = document.createElement('div');
+                                            row.className = 'row g-2 mb-2 grade-row';
+                                            row.innerHTML = `
+                                                <div class="col-md-6">
+                                                    <input type="number" class="form-control" name="values[]" min="1" max="10" step="0.01" placeholder="Notă" required>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <input type="date" class="form-control" name="dates[]" value="{{ now.strftime('%Y-%m-%d') }}">
+                                                </div>
+                                                <div class="col-md-1">
+                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-row w-100">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                </div>
+                                            `;
+                                            
+                                            container.appendChild(row);
+                                            
+                                            // Adaugă funcționalitatea de ștergere
+                                            row.querySelector('.remove-row').addEventListener('click', function() {
+                                                row.remove();
+                                            });
+                                        });
+                                    });
+                                </script>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                        <h4 class="mb-0">
+                            <i class="fas fa-chart-line me-2 text-primary"></i>
+                            Situație Școlară
+                        </h4>
+                        <div>
+                            <span class="badge bg-dark p-2 fs-5">
+                                <i class="fas fa-calculator me-1"></i>
+                                Media Generală: 
+                                {% if student_average > 0 %}
+                                    <span class="{% if student_average >= 8 %}text-success{% elif student_average >= 5 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ "%.2f"|format(student_average) }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-secondary">N/A</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    {% if student_grades %}
+                        <ul class="nav nav-tabs" id="studentGradesTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-grades" type="button" role="tab">
+                                    <i class="fas fa-list-alt me-1"></i> Toate Notele
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="by-subject-tab" data-bs-toggle="tab" data-bs-target="#by-subject" type="button" role="tab">
+                                    <i class="fas fa-book me-1"></i> După Materie
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content mt-3" id="studentGradesContent">
+                            <div class="tab-pane fade show active" id="all-grades" role="tabpanel" aria-labelledby="all-tab">
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead class="table-dark">
+                                            <tr>
+                                                <th>Materie</th>
+                                                <th class="text-center">Notă</th>
+                                                <th>Data</th>
+                                                <th class="text-end">Acțiuni</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for grade in student.grades|sort(attribute='date', reverse=True) %}
+                                                <tr>
+                                                    <td>{{ grade.subject.name }}</td>
+                                                    <td class="text-center">
+                                                        <span class="badge {% if grade.value >= 8 %}bg-success{% elif grade.value >= 5 %}bg-warning{% else %}bg-danger{% endif %} rounded-pill fs-6">
+                                                            {{ grade.value }}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ grade.date.strftime('%d/%m/%Y') }}</td>
+                                                    <td class="text-end">
+                                                        <div class="btn-group btn-group-sm">
+                                                            <a href="{{ url_for('edit_grade', grade_id=grade.id) }}" class="btn btn-outline-primary">
+                                                                <i class="fas fa-edit"></i>
+                                                            </a>
+                                                            <button class="btn btn-outline-danger delete-grade" data-grade-id="{{ grade.id }}">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <div class="tab-pane fade" id="by-subject" role="tabpanel" aria-labelledby="by-subject-tab">
+                                <div class="row row-cols-1 row-cols-md-2 g-4">
+                                    {% for subject_id, subject_info in subject_grades.items() %}
+                                        <div class="col">
+                                            <div class="card h-100">
+                                                <div class="card-header bg-opacity-75 bg-primary">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <h5 class="mb-0">{{ subject_info.name }}</h5>
+                                                        <span class="badge bg-primary fs-6">
+                                                            Media: {{ "%.2f"|format(subject_info.average) }}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="card-body">
+                                                    <div class="list-group">
+                                                        {% for grade in subject_info.grades|sort(attribute='date', reverse=True) %}
+                                                            <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                                                <div>
+                                                                    <span class="badge {% if grade.value >= 8 %}bg-success{% elif grade.value >= 5 %}bg-warning{% else %}bg-danger{% endif %} rounded-pill fs-6 me-2">
+                                                                        {{ grade.value }}
+                                                                    </span>
+                                                                    <small class="text-muted">{{ grade.date.strftime('%d/%m/%Y') }}</small>
+                                                                </div>
+                                                                <div class="btn-group btn-group-sm">
+                                                                    <a href="{{ url_for('edit_grade', grade_id=grade.id) }}" class="btn btn-outline-primary">
+                                                                        <i class="fas fa-edit"></i>
+                                                                    </a>
+                                                                    <button class="btn btn-outline-danger delete-grade" data-grade-id="{{ grade.id }}">
+                                                                        <i class="fas fa-trash"></i>
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Elevul nu are note înregistrate.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ștergere notă
+    document.querySelectorAll('.delete-grade').forEach(button => {
+        button.addEventListener('click', function() {
+            const gradeId = this.getAttribute('data-grade-id');
+            
+            if (confirm('Sunteți sigur că doriți să ștergeți această notă?')) {
+                fetch(`/delete-grade/${gradeId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Reîncarcă pagina pentru a reflecta modificările
+                        window.location.reload();
+                    } else {
+                        alert('Eroare: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('A apărut o eroare. Verificați consola pentru detalii.');
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

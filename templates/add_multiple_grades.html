@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-list-ol me-3 text-primary"></i>
+                    Adăugare Note Multiple
+                </h2>
+            </div>
+            <div class="card-body">
+                {% if students %}
+                <form id="multipleGradesForm" action="{{ url_for('add_multiple_grades') }}" method="post">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label for="student" class="form-label">Elev</label>
+                            <select class="form-select" id="student" name="student_id" required>
+                                <option value="">Selectează elevul</option>
+                                {% for student in students %}
+                                    <option value="{{ student.id }}">{{ student.name }} (Clasa {{ student.class_name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="subject" class="form-label">Materie</label>
+                            <div class="input-group">
+                                <select class="form-select" id="subject" name="subject_id" required>
+                                    <option value="">Selectează materia</option>
+                                    {% for subject in subjects %}
+                                        <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#newSubjectModal">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mb-4">
+                        <div class="d-flex">
+                            <div class="me-3">
+                                <i class="fas fa-info-circle fs-4"></i>
+                            </div>
+                            <div>
+                                <h5 class="alert-heading">Instrucțiuni</h5>
+                                <p class="mb-0">Selectați elevul și materia, apoi introduceți notele în tabelul de mai jos. Puteți adăuga până la 25 de note simultan.</p>
+                                <p class="mb-0">Pentru a salva notele, apăsați butonul "Salvează Toate Notele" de la finalul paginii.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="gradesTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th width="5%">#</th>
+                                    <th width="45%">Notă (1-10)</th>
+                                    <th width="45%">Data</th>
+                                    <th width="5%"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for i in range(25) %}
+                                <tr class="grade-row" {% if i > 0 %}style="display:none"{% endif %}>
+                                    <td>{{ i + 1 }}</td>
+                                    <td>
+                                        <input type="number" class="form-control grade-value" name="values[]" min="1" max="10" step="0.01" {% if i == 0 %}required{% endif %}>
+                                    </td>
+                                    <td>
+                                        <input type="date" class="form-control grade-date" name="dates[]" value="{{ now.strftime('%Y-%m-%d') }}" {% if i == 0 %}required{% endif %}>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if i > 0 %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger remove-grade">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4">
+                                        <button type="button" id="addGradeRow" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-plus me-1"></i> Adaugă Rând Nou
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <div class="d-grid gap-2 col-md-6 mx-auto mt-4">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-save me-2"></i>
+                            Salvează Toate Notele
+                        </button>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Înapoi la Pagina Principală
+                        </a>
+                    </div>
+                </form>
+                {% else %}
+                <div class="alert alert-warning">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-exclamation-triangle fs-3 text-warning"></i>
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">Nu există elevi înregistrați</h5>
+                            <p class="mb-0">Trebuie să adăugați cel puțin un elev înainte de a putea introduce note.</p>
+                            <div class="mt-3">
+                                <a href="{{ url_for('add_grades_form') }}" class="btn btn-primary">
+                                    <i class="fas fa-user-plus me-2"></i>
+                                    Adaugă Elev
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pentru adăugarea unei materii noi -->
+<div class="modal fade" id="newSubjectModal" tabindex="-1" aria-labelledby="newSubjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newSubjectModalLabel">Adaugă Materie Nouă</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="subjectForm" action="{{ url_for('add_subject') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="subjectName" class="form-label">Nume Materie</label>
+                        <input type="text" class="form-control" id="subjectName" name="name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anulează</button>
+                    <button type="submit" class="btn btn-primary">Salvează</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inițializare variabile
+    let visibleRows = 1;
+    const maxRows = 25;
+    const gradesTable = document.getElementById('gradesTable');
+    const gradeRows = document.querySelectorAll('.grade-row');
+    const addGradeRowBtn = document.getElementById('addGradeRow');
+    
+    // Funcția pentru adăugarea unui rând nou
+    function addNewRow() {
+        if (visibleRows < maxRows) {
+            gradeRows[visibleRows].style.display = '';
+            
+            // Activează validarea pentru rândul nou
+            const inputs = gradeRows[visibleRows].querySelectorAll('input');
+            inputs.forEach(input => input.setAttribute('required', 'required'));
+            
+            visibleRows++;
+            
+            // Ascunde butonul dacă am atins limita
+            if (visibleRows >= maxRows) {
+                addGradeRowBtn.style.display = 'none';
+            }
+        }
+    }
+    
+    // Funcția pentru ștergerea unui rând
+    function removeRow(event) {
+        // Obține rândul care trebuie șters
+        const row = event.target.closest('tr');
+        
+        // Dezactivează validarea pentru acest rând
+        const inputs = row.querySelectorAll('input');
+        inputs.forEach(input => input.removeAttribute('required'));
+        
+        // Golește valorile
+        inputs.forEach(input => input.value = '');
+        
+        // Ascunde rândul
+        row.style.display = 'none';
+        
+        // Actualizează contorul de rânduri vizibile
+        visibleRows--;
+        
+        // Arată butonul de adăugare dacă era ascuns
+        if (addGradeRowBtn.style.display === 'none') {
+            addGradeRowBtn.style.display = '';
+        }
+        
+        // Reorganizează ordinea
+        reorderRows();
+    }
+    
+    // Funcția pentru reordonarea rândurilor după ștergere
+    function reorderRows() {
+        let displayedRows = Array.from(gradeRows).filter(row => row.style.display !== 'none');
+        
+        // Ascunde toate rândurile
+        gradeRows.forEach(row => {
+            row.style.display = 'none';
+            const inputs = row.querySelectorAll('input');
+            inputs.forEach(input => input.removeAttribute('required'));
+        });
+        
+        // Afișează rândurile în noua ordine
+        for (let i = 0; i < displayedRows.length; i++) {
+            gradeRows[i].style.display = '';
+            
+            // Copiază valorile din rândurile afișate anterior
+            const sourceInputs = displayedRows[i].querySelectorAll('input');
+            const targetInputs = gradeRows[i].querySelectorAll('input');
+            
+            for (let j = 0; j < sourceInputs.length; j++) {
+                targetInputs[j].value = sourceInputs[j].value;
+                targetInputs[j].setAttribute('required', 'required');
+            }
+        }
+        
+        visibleRows = displayedRows.length;
+    }
+    
+    // Listener pentru adăugarea unui rând nou
+    if (addGradeRowBtn) {
+        addGradeRowBtn.addEventListener('click', addNewRow);
+    }
+    
+    // Listener pentru ștergerea rândurilor
+    document.querySelectorAll('.remove-grade').forEach(button => {
+        button.addEventListener('click', removeRow);
+    });
+    
+    // Validare formular la submit
+    const multipleGradesForm = document.getElementById('multipleGradesForm');
+    if (multipleGradesForm) {
+        multipleGradesForm.addEventListener('submit', function(e) {
+            const studentSelect = document.getElementById('student');
+            const subjectSelect = document.getElementById('subject');
+            
+            if (!studentSelect.value || !subjectSelect.value) {
+                e.preventDefault();
+                alert('Selectați un elev și o materie înainte de a salva notele!');
+                return false;
+            }
+            
+            // Verifică dacă avem cel puțin o notă validă
+            let validGrades = 0;
+            document.querySelectorAll('.grade-row').forEach(row => {
+                if (row.style.display !== 'none') {
+                    const valueInput = row.querySelector('.grade-value');
+                    if (valueInput && valueInput.value) {
+                        validGrades++;
+                    }
+                }
+            });
+            
+            if (validGrades === 0) {
+                e.preventDefault();
+                alert('Introduceți cel puțin o notă înainte de a salva!');
+                return false;
+            }
+        });
+    }
+    
+    // Redirectează înapoi la pagina curentă după ce se adaugă o materie
+    const subjectForm = document.getElementById('subjectForm');
+    if (subjectForm) {
+        subjectForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const form = e.target;
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Ascunde modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('newSubjectModal'));
+                    modal.hide();
+                    
+                    // Adaugă noua materie în select
+                    const subjectSelect = document.getElementById('subject');
+                    const option = document.createElement('option');
+                    option.value = data.subject.id;
+                    option.textContent = data.subject.name;
+                    subjectSelect.appendChild(option);
+                    subjectSelect.value = data.subject.id;
+                    
+                    // Resetează formularul
+                    form.reset();
+                    
+                    // Afișează notificare de succes
+                    alert('Materia a fost adăugată cu succes!');
+                } else {
+                    alert('Eroare: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('A apărut o eroare. Verificați consola pentru detalii.');
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

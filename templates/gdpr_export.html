@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 col-xl-8 mx-auto">
+        <div class="card shadow">
+            <div class="card-header bg-primary bg-opacity-50">
+                <h2 class="card-title mb-0 d-flex align-items-center">
+                    <i class="fas fa-file-export me-3 text-primary"></i>
+                    Export Date Personale (GDPR)
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info mb-4">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="fas fa-info-circle fs-3"></i>
+                        </div>
+                        <div>
+                            <h5 class="alert-heading">Export date conform GDPR</h5>
+                            <p>Această funcționalitate vă permite să exportați toate datele personale ale unui elev sau părinte în format JSON sau CSV, conform cerințelor de portabilitate a datelor din GDPR (Art. 20).</p>
+                            <p class="mb-0">Selectați elevul sau părintele pentru care doriți să exportați datele și formatul preferat.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" action="{{ url_for('gdpr_export_data_post') }}">
+                    <div class="mb-4">
+                        <label for="export_type" class="form-label">Tip export</label>
+                        <select class="form-select form-select-lg" id="export_type" name="export_type" required>
+                            <option value="" selected disabled>Selectați tipul de export</option>
+                            <option value="student">Date elev (inclusiv note)</option>
+                            <option value="parent">Date părinte</option>
+                            <option value="all">Date complete (elev + părinte)</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="subject_id" class="form-label">Selectați persoana</label>
+                        <select class="form-select form-select-lg" id="subject_id" name="subject_id" required>
+                            <option value="" selected disabled>Selectați elevul</option>
+                            {% for student in students %}
+                                <option value="{{ student.id }}">{{ student.name }} ({{ student.class_name }}) - Părinte: {{ student.parent_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">Format export</label>
+                        <div class="d-flex">
+                            <div class="form-check me-4">
+                                <input class="form-check-input" type="radio" name="export_format" id="format_json" value="json" checked>
+                                <label class="form-check-label" for="format_json">
+                                    <i class="fas fa-code me-2"></i> JSON
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="export_format" id="format_csv" value="csv">
+                                <label class="form-check-label" for="format_csv">
+                                    <i class="fas fa-file-csv me-2"></i> CSV
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="anonymize_others" name="anonymize_others" checked>
+                            <label class="form-check-label" for="anonymize_others">
+                                Anonimizează datele altor persoane (recomandată pentru a proteja confidențialitatea)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-download me-2"></i>
+                            Exportă datele
+                        </button>
+                        <a href="{{ url_for('gdpr_settings') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Înapoi la setările GDPR
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
