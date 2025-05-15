@@ -1,9 +1,11 @@
+# Secțiunea de înlocuit în app.py
+
 import os
 import io
 import csv
 import time
 import json
-import logging
+import logging # Am lăsat importul, e bun
 import datetime
 import tempfile
 import hashlib
@@ -17,6 +19,7 @@ from sqlalchemy.orm import DeclarativeBase
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_migrate import Migrate
 
+# Presupunând că aceste fișiere/foldere utils există în proiectul tău
 from utils.email_sender import send_email_notification
 from utils.csv_processor import process_csv_data, calculate_average
 from utils.simple_notifier import save_notification
@@ -28,7 +31,7 @@ from utils.gdpr_utils import (
 )
 
 # Configurare logger
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO) # Recomand INFO pentru producție
 logger = logging.getLogger(__name__)
 
 # Declarare bază de date
@@ -37,11 +40,24 @@ class Base(DeclarativeBase):
 
 # Inițializare aplicație
 app = Flask(__name__)
-app.secret_key = os.environ.get("SESSION_SECRET")
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # necesar pentru url_for pentru a genera cu https
 
-# Configurare bază de date
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
+# Secret Key pentru sesiuni Flask - Citește din variabila de mediu
+app.secret_key = os.environ.get("SESSION_SECRET")
+if not app.secret_key:
+    logger.warning("SESSION_SECRET environment variable not set. Sessions may be insecure or fail.")
+    # Pentru dezvoltare locală, poți avea o cheie implicită, dar NU o folosi în producție.
+    # De exemplu: app.secret_key = "dev_secret_key_only_for_local"
+
+# Necesar pentru url_for pentru a genera cu https când ești în spatele unui proxy
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+# Configurare bază de date - Citește din variabila de mediu
+db_uri_from_env = os.environ.get("SQLALCHEMY_DATABASE_URI")
+if not db_uri_from_env:
+    logger.error("CRITICAL ERROR: SQLALCHEMY_DATABASE_URI environment variable not set!")
+    # Aplicația probabil va eșua aici sau la inițializarea db, ceea ce e bine.
+app.config["SQLALCHEMY_DATABASE_URI"] = db_uri_from_env
+
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
@@ -51,39 +67,44 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
-# Inițializare migrării (dacă va fi necesar în viitor)
+# Inițializare migrării
 migrate = Migrate(app, db)
 
 # Importăm modelele după inițializarea db
-from models import Student, Subject, Grade, Reminder
+try:
+    from models import Student, Subject, Grade, Reminder
+except ImportError as e:
+    logger.error(f"ERROR: Could not import models: {e}. Ensure models.py exists and has no import errors.")
+    # Consideră oprirea aplicației aici dacă modelele sunt esențiale pentru pornire.
 
 # Creăm baza de date și adăugăm materii inițiale
-with app.app_context():
-    db.create_all()
-    
-    # Adăugăm materii default
-    try:
-        # Verificăm dacă există deja materii
+try:
+    with app.app_context():
+        db.create_all()
+        logger.info("Database tables checked/created.")
+
         if Subject.query.count() == 0:
             default_subjects = [
-                # Materii principale
                 "Matematică", "Română", "Istorie", "Geografie", "Fizică", 
                 "Chimie", "Biologie", "Informatică", "Engleză", "Franceză",
-                # Materii suplimentare
                 "Educație Fizică", "Educație Muzicală", "Educație Plastică", 
                 "Educație Civică", "Psihologie", "Economie", "Filosofie", 
                 "Tehnologie", "Religie", "Logică"
             ]
-            
             for subject_name in default_subjects:
                 subject = Subject(name=subject_name)
                 db.session.add(subject)
-            
             db.session.commit()
-            logger.info(f"Added {len(default_subjects)} default subjects")
-    except Exception as e:
+            logger.info(f"Added {len(default_subjects)} default subjects.")
+        else:
+            logger.info("Default subjects already exist, not adding again.")
+except Exception as e:
+    if db and db.session: # Verifică dacă db.session este disponibil înainte de rollback
         db.session.rollback()
-        logger.error(f"Error adding default subjects: {str(e)}")
+    logger.error(f"Error during table creation or adding default subjects: {str(e)}")
+
+# --- SFÂRȘITUL SECȚIUNII DE ÎNLOCUIT ---
+# Restul fișierului tău app.py (de la "# Funcție helper pentru a obține elevii..." încolo) rămâne la fel.
 
 # Funcție helper pentru a obține elevii grupați după clasă
 def get_students_by_class():
