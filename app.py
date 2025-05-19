@@ -825,7 +825,7 @@ def send_notifications():
             custom_content = content
             
             # Personalizăm conținutul cu numele părintelui
-            body = custom_content.replace("Stimat părinte", f"Stimat părinte {parent_name}")
+            body = custom_content # Presupunând că 'custom_content' va conține deja "Stimate domn/doamnă,"
             
             # Adăugăm secțiunea cu note, dacă este solicitată
             if include_grades and 'all_grades' in info and info['all_grades']:
@@ -1537,8 +1537,7 @@ Conform Regulamentului (UE) 2016/679 privind protecția persoanelor fizice în c
 
 Vă rugăm să consultați documentul atașat pentru informații complete și pentru a vă exprima consimțământul.
 
-Cu stimă,
-Conducerea școlii
+
 """
         
         # Generăm un PDF cu formularul dacă este necesar
